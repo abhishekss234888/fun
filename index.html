@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MADNESS</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --neon-green: #00ff41;
+    --neon-amber: #ffaa00;
+    --dark-bg: #020502;
+    --glow-green: 0 0 8px #00ff41, 0 0 20px #00ff41;
+    --glow-amber: 0 0 6px #ffaa00, 0 0 14px #ffaa00;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark-bg);
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: 'Share Tech Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: none;
+  }
+
+  #cursor {
+    position: fixed;
+    width: 10px; height: 10px;
+    border: 1.2px solid var(--neon-amber);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    box-shadow: var(--glow-amber);
+  }
+  #cursor::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 2px; height: 2px;
+    background: var(--neon-amber);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  #matrixCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  #scoreContainer {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 15;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    background: rgba(0, 10, 0, 0.6);
+    backdrop-filter: blur(2px);
+    padding: 5px 12px;
+    border-radius: 60px;
+    border-left: 2px solid var(--neon-green);
+    border-bottom: 1px solid rgba(0, 255, 65, 0.4);
+    box-shadow: 0 0 8px rgba(0,0,0,0.6);
+  }
+  #scoreLabel {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--neon-green);
+    text-shadow: var(--glow-green);
+    opacity: 0.8;
+  }
+  #scoreValue {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--neon-amber);
+    text-shadow: var(--glow-amber);
+    letter-spacing: 1px;
+    line-height: 1;
+    transition: transform 0.08s ease;
+  }
+  #scoreValue.pulse {
+    transform: scale(1.12);
+    color: #fff;
+    text-shadow: 0 0 10px #fff;
+  }
+
+  #arena {
+    position: relative;
+    z-index: 10;
+    width: 128px;
+    height: 128px;
+    margin: 0 auto;
+  }
+
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin linear infinite;
+  }
+  .ring-1 {
+    width: 156px; height: 156px;
+    border-color: rgba(0, 255, 65, 0.35);
+    animation-duration: 18s;
+  }
+  .ring-2 {
+    width: 172px; height: 172px;
+    border-color: rgba(255, 170, 0, 0.2);
+    border-style: dashed;
+    animation-duration: 24s;
+    animation-direction: reverse;
+  }
+  .ring-3 {
+    width: 144px; height: 144px;
+    border-color: rgba(0, 255, 65, 0.15);
+    border-style: dotted;
+    animation-duration: 12s;
+  }
+  @keyframes spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  #dinoBtn {
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 40% 35%, #0f1a0b 0%, #030603 95%);
+    box-shadow:
+      0 0 0 1.8px var(--neon-green),
+      0 0 18px rgba(0, 255, 65, 0.4),
+      inset 0 0 18px rgba(0, 255, 65, 0.05);
+    cursor: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.08s, transform 0.07s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #dinoBtn.clicked {
+    transform: scale(0.92);
+    box-shadow:
+      0 0 0 2px #fff,
+      0 0 28px rgba(0, 255, 65, 0.9),
+      inset 0 0 12px rgba(0, 255, 65, 0.2);
+  }
+
+  #dinoBtn::before {
+    content: '';
+    position: absolute;
+    width: 100%; height: 1.2px;
+    background: linear-gradient(90deg, transparent, rgba(0,255,65,0.6), transparent);
+    animation: scan 3.2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 3;
+  }
+  @keyframes scan {
+    0%   { top: 8%; opacity: 0; }
+    25%  { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { top: 92%; opacity: 0; }
+  }
+
+  #customImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    pointer-events: none;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.08s;
+  }
+  #dinoBtn.clicked #customImage {
+    transform: scale(0.92) translateY(1px);
+  }
+
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    border: 1.5px solid var(--neon-green);
+    animation: rippleOut 0.55s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes rippleOut {
+    from { width: 6px; height: 6px; opacity: 0.9; transform: translate(-50%,-50%) scale(0.8); }
+    to   { width: 130px; height: 130px; opacity: 0; transform: translate(-50%,-50%) scale(1.5); }
+  }
+
+  .floatScore {
+    position: fixed;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--neon-amber);
+    text-shadow: var(--glow-amber);
+    pointer-events: none;
+    z-index: 100;
+    animation: floatUp 0.8s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    70%  { opacity: 1; transform: translateY(-48px) scale(1.08); }
+    100% { opacity: 0; transform: translateY(-80px) scale(0.85); }
+  }
+
+  #tapHint {
+    position: relative;
+    z-index: 10;
+    margin-top: 24px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: rgba(0, 255, 65, 0.5);
+    text-transform: uppercase;
+    font-weight: 400;
+    animation: pulseHint 2s ease-in-out infinite;
+    text-align: center;
+  }
+  #credit {
+    position: relative;
+    z-index: 10;
+    margin-top: 8px;
+    font-size: 7px;
+    letter-spacing: 1px;
+    color: rgba(255, 170, 0, 0.4);
+    font-family: 'Share Tech Mono', monospace;
+    text-align: center;
+  }
+  @keyframes pulseHint { 0%,100%{opacity:0.3} 50%{opacity:0.8} }
+</style>
+</head>
+<body>
+<div id="cursor"></div>
+<canvas id="matrixCanvas"></canvas>
+
+<div id="scoreContainer">
+  <div id="scoreLabel">MADNESS</div>
+  <div id="scoreValue">0</div>
+</div>
+
+<div id="arena">
+  <div class="ring ring-1"></div>
+  <div class="ring ring-2"></div>
+  <div class="ring ring-3"></div>
+  <button id="dinoBtn">
+  </button>
+</div>
+<div id="tapHint">▸ CLICK BY: ABHISHEK :) ◂</div>
+<div id="credit"> ABHISHEK <div>
+
+<script>
+  (function(){
+    // ============================================
+    // === CALM RELAXING SOUND (always on) ===
+    // ============================================
+    let audioContext = null;
+    let masterGain = null;
+    
+    function initAudio() {
+      if (audioContext) return;
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioContext.createGain();
+      masterGain.gain.value = 0.35; // gentle volume
+      masterGain.connect(audioContext.destination);
+    }
+    
+    function playCalmSound() {
+      try {
+        initAudio();
+        // Resume if suspended (browser autoplay policy)
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        
+        const now = audioContext.currentTime;
+        
+        // Create a soft, meditative sine wave with fade (like a singing bowl)
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.type = 'sine';
+        // Gentle frequency sweep: starts at 432Hz (calming) slightly glides
+        osc.frequency.setValueAtTime(432, now);
+        osc.frequency.exponentialRampToValueAtTime(448, now + 0.6);
+        
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.22, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+        
+        osc.connect(gain);
+        gain.connect(masterGain);
+        
+        osc.start();
+        osc.stop(now + 1.3);
+        
+        // Add a subtle harmonic (warmer tone) - like a soft chime
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(864, now);
+        osc2.frequency.exponentialRampToValueAtTime(880, now + 0.5);
+        
+        gain2.gain.setValueAtTime(0, now);
+        gain2.gain.linearRampToValueAtTime(0.1, now + 0.05);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+        
+        osc2.connect(gain2);
+        gain2.connect(masterGain);
+        
+        osc2.start();
+        osc2.stop(now + 1.1);
+        
+        // Very soft noise like a breath/whisper (adds meditative texture)
+        const bufferSize = 4096;
+        const noiseNode = audioContext.createScriptProcessor(bufferSize, 1, 1);
+        let noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0, now);
+        noiseGain.gain.linearRampToValueAtTime(0.018, now + 0.1);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+        
+        noiseNode.onaudioprocess = function(e) {
+          const output = e.outputBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            output[i] = (Math.random() * 2 - 1) * 0.12;
+          }
+        };
+        noiseNode.connect(noiseGain);
+        noiseGain.connect(masterGain);
+        
+        noiseNode.disconnect = function() {
+          try {
+            noiseNode.onaudioprocess = null;
+          } catch(e) {}
+        };
+        
+        setTimeout(() => {
+          try {
+            noiseNode.disconnect();
+            noiseNode.onaudioprocess = null;
+          } catch(e) {}
+        }, 900);
+        
+      } catch(e) {
+        console.log("Audio error:", e);
+      }
+    }
+    
+    // Pre-warm audio on first user interaction (any tap)
+    let audioInitialized = false;
+    function warmupAudio() {
+      if (audioInitialized) return;
+      audioInitialized = true;
+      initAudio();
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      // Play a silent buffer to unlock audio on mobile
+      const silent = audioContext.createBuffer(1, 1, 22050);
+      const source = audioContext.createBufferSource();
+      source.buffer = silent;
+      source.connect(masterGain);
+      source.start();
+    }
+    
+    // Score and game logic
+    let score = parseInt(localStorage.getItem('dinoScoreRaw') || '0');
+    const scoreEl = document.getElementById('scoreValue');
+    scoreEl.textContent = score.toLocaleString();
+    
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', (e) => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY + 'px';
+    });
+    document.addEventListener('mouseleave', () => { cursor.style.opacity = '0'; });
+    document.addEventListener('mouseenter', () => { cursor.style.opacity = '1'; });
+    
+    // Matrix rain effect
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, cols, drops;
+    const FONT_SIZE = 14;
+    const chars = '01ΨΔΘΞΦΩβ▲▼◀▶₿⚡⨀⨂⋆⨻';
+    let waves = [];
+    
+    function resizeMatrix() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      cols = Math.floor(W / FONT_SIZE);
+      drops = new Array(cols).fill(1).map(() => Math.random() * -70 - 20);
+    }
+    resizeMatrix();
+    window.addEventListener('resize', resizeMatrix);
+    
+    function addWave(x, y) {
+      waves.push({ x: x, y: y, born: performance.now() });
+    }
+    
+    function getCharColor(col, row, now) {
+      const x = col * FONT_SIZE;
+      const y = row * FONT_SIZE;
+      const centerX = W / 2;
+      const centerY = H / 2;
+      const distCenter = Math.hypot(x - centerX, y - centerY);
+      if (distCenter < 74) return null;
+      
+      let r = 0, g = 150, b = 25, a = 0.5;
+      let waveIntensity = 0;
+      for (const w of waves) {
+        const dist = Math.hypot(x - w.x, y - w.y);
+        const age = now - w.born;
+        const waveRadius = age * 0.52;
+        if (Math.abs(dist - waveRadius) < 38 && age < 1600) {
+          const strength = (1 - Math.abs(dist - waveRadius) / 38) * (1 - age / 1800);
+          waveIntensity = Math.min(1, waveIntensity + strength * 0.85);
+        }
+      }
+      
+      if (waveIntensity > 0.07) {
+        const intensity = Math.min(1, waveIntensity);
+        r = Math.floor(120 + intensity * 135);
+        g = Math.floor(170 + intensity * 85);
+        b = Math.floor(20 + intensity * 35);
+        a = 0.65 + intensity * 0.35;
+      } else {
+        let variation = Math.sin(x * 0.02 + now * 0.003) * 40;
+        g = 130 + variation;
+        r = 20 + Math.abs(variation) * 0.8;
+        b = 15;
+        a = 0.55;
+      }
+      g = Math.min(245, g);
+      return `rgba(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)}, ${a})`;
+    }
+    
+    function drawMatrix(now) {
+      requestAnimationFrame(drawMatrix);
+      for(let i=waves.length-1; i>=0; i--) {
+        if(now - waves[i].born > 2200) waves.splice(i,1);
+      }
+      
+      ctx.fillStyle = 'rgba(2, 6, 2, 0.145)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.font = `${FONT_SIZE}px "Share Tech Mono", monospace`;
+      
+      for(let i = 0; i < cols; i++) {
+        const x = i * FONT_SIZE;
+        const rowIdx = Math.floor(drops[i]);
+        const y = drops[i] * FONT_SIZE;
+        const color = getCharColor(i, rowIdx, now);
+        if(color && y < H + FONT_SIZE && y > -FONT_SIZE) {
+          ctx.fillStyle = color;
+          const char = chars[Math.floor(Math.random() * chars.length)];
+          ctx.fillText(char, x, y);
+        }
+        if(y > H && Math.random() > 0.975) drops[i] = 0;
+        drops[i] += 0.6 + (Math.random() * 0.25);
+      }
+    }
+    requestAnimationFrame(drawMatrix);
+    
+    // Button click handler with calm sound
+    const btn = document.getElementById('dinoBtn');
+    
+    function handleTap(e) {
+      // Warm up & play sound
+      warmupAudio();
+      playCalmSound();
+      
+      score++;
+      localStorage.setItem('dinoScoreRaw', score);
+      scoreEl.textContent = score.toLocaleString();
+      
+      scoreEl.classList.remove('pulse');
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add('pulse');
+      setTimeout(() => scoreEl.classList.remove('pulse'), 130);
+      
+      btn.classList.add('clicked');
+      setTimeout(() => btn.classList.remove('clicked'), 105);
+      
+      let clientX, clientY;
+      if(e.touches) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+        e.preventDefault();
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      const rectBtn = btn.getBoundingClientRect();
+      const rippleX = clientX - rectBtn.left;
+      const rippleY = clientY - rectBtn.top;
+      const ripple = document.createElement('div');
+      ripple.className = 'ripple';
+      ripple.style.left = rippleX + 'px';
+      ripple.style.top = rippleY + 'px';
+      btn.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 500);
+      
+      const floatSpan = document.createElement('div');
+      floatSpan.className = 'floatScore';
+      floatSpan.textContent = '+1';
+      floatSpan.style.left = (clientX - 12) + 'px';
+      floatSpan.style.top = (clientY - 18) + 'px';
+      document.body.appendChild(floatSpan);
+      setTimeout(() => floatSpan.remove(), 800);
+      
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      addWave(cx, cy);
+    }
+    
+    btn.addEventListener('click', handleTap);
+    btn.addEventListener('touchstart', handleTap, { passive: false });
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    
+    // Initialize wave
+    setTimeout(() => {
+      addWave(window.innerWidth/2, window.innerHeight/2);
+    }, 200);
+  })();
+</script>
+</body>
+</html>
